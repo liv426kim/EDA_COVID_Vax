@@ -72,20 +72,75 @@ ccd_prop <- ccd |>
     jj = jj / total
   ) |>
   select(-total) |>
-  pivot_longer(cols = c(pfizer, moderna, jj), names_to = "vaccine", values_to = "proportion")
+  pivot_longer(cols = c(pfizer, moderna, jj), names_to = "vaccine", values_to = "proportion") |>
+  mutate(county = factor(county, levels = rev(sort(unique(county)))))
 
 
-ggplot(ccd_prop, aes(x = reorder(county, -proportion), y = proportion, fill = vaccine)) +
+# Plot
+ggplot(ccd_prop, aes(x = county, y = proportion, fill = vaccine)) +
   geom_col(position = "stack") +
   coord_flip() +
-  theme_light() +
+  theme_minimal() +
   labs(
     title = "Proportion of Vaccine Doses Shipped by County",
     x = "County",
     y = "Proportion of Total Doses",
     fill = "Vaccine Type"
-  )
+  ) +
+  scale_fill_manual(values = c(
+    pfizer = "darkblue",
+    moderna = "darkred",
+    jj = "darkgrey"
+  )) 
+ 
+### link to why rural counties didnt like phzier: https://www.news-medical.net/news/20210208/Californiae28099s-smallest-county-makes-big-vaccination-gains.aspx
 
+# top 5: Los Angeles, San Diego, Organe, Riverside, San Bernanrdino
+# bottom 5: Alpine, Sierra, Modoc , Mono, Trinity
 
+###
 
-  
+# Define target counties
+top5 <- c("Los Angeles", "San Diego", "Orange", "Riverside", "San Bernardino")
+bottom5 <- c("Alpine", "Sierra", "Modoc", "Mono", "Trinity")
+target_counties <- c(top5, bottom5)
+
+# Filter and calculate proportions for only top/bottom counties
+ccd_prop <- ccd |>
+  filter(county %in% target_counties) |>
+  group_by(county) |>
+  summarise(
+    pfizer = sum(pfizer_doses_shipped, na.rm = TRUE),
+    moderna = sum(moderna_doses_shipped, na.rm = TRUE),
+    jj = sum(jj_doses_shipped, na.rm = TRUE)
+  ) |>
+  mutate(total = pfizer + moderna + jj) |>
+  mutate(
+    pfizer = pfizer / total,
+    moderna = moderna / total,
+    jj = jj / total
+  ) |>
+  select(-total) |>
+  pivot_longer(cols = c(pfizer, moderna, jj), names_to = "vaccine", values_to = "proportion") |>
+  mutate(county = factor(county, levels = rev(target_counties)))  # keep desired order
+
+# Plot
+ggplot(ccd_prop, aes(x = county, y = proportion, fill = vaccine)) +
+  geom_col(position = "stack") +
+  coord_flip() +
+  theme_minimal() +
+  labs(
+    title = "Proportion of Vaccine Doses Shipped (Top 5 vs. Bottom 5 Counties)",
+    x = "County",
+    y = "Proportion of Total Doses",
+    fill = "Vaccine Type"
+  ) +
+  scale_fill_manual(values = c("pfizer" = "darkblue", 
+                               "moderna" = "firebrick", 
+                               "jj" = "#FF9999"))                        
+
+ggplot(ccd, aes(x = first_date, y = doses_shipped, color = county)) +
+  geom_line() +
+  labs(title = "Weekly Vaccine Shipments by County", x = "Week", y = "Doses Shipped") +
+  theme_minimal()
+
