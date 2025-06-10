@@ -144,3 +144,39 @@ ggplot(ccd, aes(x = first_date, y = doses_shipped, color = county)) +
   labs(title = "Weekly Vaccine Shipments by County", x = "Week", y = "Doses Shipped") +
   theme_minimal()
 
+
+
+#### old clusting 
+
+#reclean
+vax_features <- ccd |>
+  group_by(county) |>
+  summarise(
+    pfizer_prop = max(cumulative_pfizer_doses_delivered, na.rm = TRUE) / 
+      max(cumulative_doses_delivered, na.rm = TRUE),
+    moderna_prop = max(cumulative_moderna_doses_delivered, na.rm = TRUE) / 
+      max(cumulative_doses_delivered, na.rm = TRUE),
+    jj_prop = max(cumulative_jj_doses_delivered, na.rm = TRUE) / 
+      max(cumulative_doses_delivered, na.rm = TRUE)
+  ) |>
+  drop_na()
+
+
+#Stand
+std_vax_features <- vax_features |>
+  select(-county) |>
+  scale(center = TRUE, scale = TRUE)
+
+kmeans_many_features <- std_vax_features |>
+  kmeans(algorithm = "Hartigan-Wong", centers = 4, nstart = 1000)
+
+vax_clustered <- vax_features |>
+  mutate(cluster = as.factor(kmeans_many_features$cluster))
+
+fviz_cluster(kmeans_many_features,
+             data = std_vax_features,
+             geom = "point",
+             ellipse = FALSE,
+             main = "Vaccine Delivery Clusters") +
+  ggthemes::scale_color_colorblind() +
+  theme_light()
