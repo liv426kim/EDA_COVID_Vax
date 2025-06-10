@@ -53,7 +53,7 @@ brand_colors <- c("Pfizer" = "#0047AB", "Moderna" = "#D12600",
 # Combined plot with all brands
 combined_plot <- ggplot(brand_delivery_rates, aes(x = date, y = delivery_rate, color = brand)) +
   geom_line(size = 1) +
-  geom_point(size = 2) +  # Add points to show all data points
+  geom_point(size = 2, alpha = 0.5) +  # Add points to show all data points
   scale_y_continuous(labels = scales::percent, limits = y_limits) +
   scale_color_manual(values = brand_colors) +
   labs(
@@ -72,7 +72,7 @@ create_brand_plot <- function(brand_name) {
          aes(x = date, y = delivery_rate)) +
     geom_line(color = brand_colors[brand_name], size = 1) +
     geom_point(color = brand_colors[brand_name], size = 2) +  # Add points
-    scale_y_continuous(labels = scales::percent, limits = y_limits) +
+    #scale_y_continuous(labels = scales::percent, limits = y_limits) +
     labs(
       title = paste0(brand_name, " Delivery Rate (First Year)"),
       x = "Date",
