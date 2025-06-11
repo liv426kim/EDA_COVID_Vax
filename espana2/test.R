@@ -41,7 +41,7 @@ library(ggplot2)
     )
 
   ggplot(ccd_long, aes(x = doses_shipped)) +
-    geom_histogram(bins = 30, fill = "steelblue", color = "white") +
+    geom_histogram(bins = 30, fill = "steelblue", color = "ite") +
     facet_wrap(~ vaccine, scales = "free") +
     theme_light() +
     labs(title = "Distribution of Doses Shipped by Vaccine Type", x = "Doses Shipped", y = "Count")
@@ -130,7 +130,7 @@ ggplot(ccd_prop, aes(x = county, y = proportion, fill = vaccine)) +
   coord_flip() +
   theme_minimal() +
   labs(
-    title = "Proportion of Vaccine Doses Shipped (Top 5 vs. Bottom 5 Counties)",
+    title = "Proportion of Vaccine Doses Shipped (Top 5 vs. Bottom 5 Counties by Population)",
     x = "County",
     y = "Proportion of Total Doses",
     fill = "Vaccine Type"
@@ -144,7 +144,110 @@ ggplot(ccd, aes(x = first_date, y = doses_shipped, color = county)) +
   labs(title = "Weekly Vaccine Shipments by County", x = "Week", y = "Doses Shipped") +
   theme_minimal()
 
+########### Custering Analysis 
+library(tidyverse)
+library(factoextra)
+library(ggthemes)
+library(patchwork)
+library(ggrepel)
 
+###########################
+### Clustering Analysis ###
+###########################
+
+# Step 1: Proportions by county
+vax_proportions <- ccd |>
+  group_by(county) |>
+  summarise(
+    pfizer_prop = max(cumulative_pfizer_doses_delivered, na.rm = TRUE) / 
+      max(cumulative_doses_delivered, na.rm = TRUE),
+    moderna_prop = max(cumulative_moderna_doses_delivered, na.rm = TRUE) / 
+      max(cumulative_doses_delivered, na.rm = TRUE),
+    jj_prop = max(cumulative_jj_doses_delivered, na.rm = TRUE) / 
+      max(cumulative_doses_delivered, na.rm = TRUE)
+  ) |>
+  drop_na()
+
+# Step 2: Standardize the proportions
+std_vax_proportions <- vax_proportions |>
+  select(-county) |>
+  scale(center = TRUE, scale = TRUE)
+
+# Step 3: Perform clustering
+set.seed(123)
+kmeans_result <- kmeans(std_vax_proportions,
+                        centers = 3,  # Change as needed
+                        algorithm = "Hartigan-Wong",
+                        nstart = 1000)
+
+# Step 4: Add clusters
+vax_clustered <- vax_proportions |>
+  mutate(cluster = as.factor(kmeans_result$cluster))
+
+############################
+### Cluster Scatter Plot ###
+############################
+
+cluster_plot <- fviz_cluster(kmeans_result,
+                             data = std_vax_proportions,
+                             geom = c("point", "text"),
+                             repel = TRUE,
+                             ellipse.type = "norm",
+                             ggtheme = theme_minimal(base_size = 12)) +
+  scale_color_manual(values = c("#E69F00", "#56B4E9", "#009E73")) +
+  scale_fill_manual(values = c("#E69F00", "#56B4E9", "#009E73")) +
+  labs(title = "California County Vaccine Distribution Patterns",
+       subtitle = "Clustered by Pfizer, Moderna, and J&J vaccine delivery proportions",
+       x = "Dimension 1", y = "Dimension 2", color = "Cluster") +
+  theme(plot.title = element_text(face = "bold", size = 14),
+        plot.subtitle = element_text(size = 10),
+        legend.position = "bottom")
+
+#############################
+### Cluster Profile Plot ###
+#############################
+
+centers_df <- as.data.frame(kmeans_result$centers)
+centers_df$cluster <- factor(1:nrow(centers_df))
+centers_long <- centers_df |>
+  pivot_longer(cols = -cluster, names_to = "vaccine", values_to = "z_score")
+
+profile_plot <- ggplot(centers_long, aes(x = vaccine, y = z_score, color = cluster, group = cluster)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 3) +
+  scale_color_manual(values = c("#E69F00", "#56B4E9", "#009E73")) +
+  labs(title = "Cluster Profiles",
+       subtitle = "Standardized mean vaccine proportions by cluster",
+       x = "Vaccine Type", y = "Standardized Proportion Score",
+       color = "Cluster") +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(face = "bold"),
+        legend.position = "bottom")
+
+##########################
+### Combine and Save ###
+##########################
+
+final_plot <- cluster_plot + profile_plot +
+  plot_layout(ncol = 1) +
+  plot_annotation(
+    title = "COVID-19 Vaccine Distribution Clusters in California Counties",
+    subtitle = "Clustered by relative proportions of Pfizer, Moderna, and J&J vaccine deliveries",
+    caption = "Data: California Department of Public Health | Analysis: Your Name",
+    theme = theme(plot.title = element_text(size = 16, face = "bold"),
+                  plot.subtitle = element_text(size = 12))
+  )
+
+# Display
+final_plot
+
+# Save
+ggsave("vaccine_clusters.png", final_plot, width = 10, height = 12, dpi = 300)
+
+
+
+########################
 
 #### old clusting 
 
